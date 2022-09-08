@@ -1,0 +1,13 @@
+pick_place_server_demo:
+  ros__parameters:
+    arm_group_name: "panda_arm"
+    hand_group_name: "hand"
+    hand_frame: "panda_hand"
+    object_name: "object"
+    end_effector_name: "hand"
+    hand_open_pose: "open"
+    hand_close_pose: "close"
+    object_frame_id: "world"
+    place_frame_id: "world"
+    place_pose: [0.5, 0.3, 0.0, 1.0, 0.0, 0.0, 0.0]
+    object_pose: [0.5, -0.25, 0.0, 1.0, 0.0, 0.0, 0.0]
