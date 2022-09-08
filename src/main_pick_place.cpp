@@ -11,42 +11,49 @@ using namespace std::chrono_literals;
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("pick_place_demo");
 
 moveit_msgs::msg::CollisionObject createTable(
-  const std::string & table_name, const geometry_msgs::msg::Pose & pose)
-{
+    const std::string& table_name, const geometry_msgs::msg::Pose& pose) {
   moveit_msgs::msg::CollisionObject object;
   object.id = table_name;
   object.header.frame_id = "world";
   object.primitives.resize(1);
   object.primitives[0].type = shape_msgs::msg::SolidPrimitive::BOX;
   object.primitives[0].dimensions.resize(
-    geometric_shapes::solidPrimitiveDimCount<shape_msgs::msg::SolidPrimitive::BOX>());
-  object.primitives[0].dimensions.at(shape_msgs::msg::SolidPrimitive::BOX_X) = 0.2;
-  object.primitives[0].dimensions.at(shape_msgs::msg::SolidPrimitive::BOX_Y) = 0.2;
-  object.primitives[0].dimensions.at(shape_msgs::msg::SolidPrimitive::BOX_Z) = 0.25;
+      geometric_shapes::solidPrimitiveDimCount<
+          shape_msgs::msg::SolidPrimitive::BOX>());
+  object.primitives[0].dimensions.at(shape_msgs::msg::SolidPrimitive::BOX_X) =
+      0.2;
+  object.primitives[0].dimensions.at(shape_msgs::msg::SolidPrimitive::BOX_Y) =
+      0.2;
+  object.primitives[0].dimensions.at(shape_msgs::msg::SolidPrimitive::BOX_Z) =
+      0.25;
   object.primitive_poses.push_back(pose);
   object.primitive_poses.back().position.z +=
-    0.5 * object.primitives[0].dimensions.at(
-            shape_msgs::msg::SolidPrimitive::BOX_Z);  // align surface with world
+      0.5 *
+      object.primitives[0].dimensions.at(
+          shape_msgs::msg::SolidPrimitive::BOX_Z);  // align surface with world
   return object;
 }
 
-moveit_msgs::msg::CollisionObject createObject(const geometry_msgs::msg::Pose & pose)
-{
+moveit_msgs::msg::CollisionObject createObject(
+    const std::string object_name, const std::string frame_id,
+    const geometry_msgs::msg::Pose& pose) {
   moveit_msgs::msg::CollisionObject object;
-  object.id = "object";
+  object.id = object_name;
   object.header.frame_id = "world";
   object.primitives.resize(1);
   object.primitives[0].type = shape_msgs::msg::SolidPrimitive::CYLINDER;
   object.primitives[0].dimensions.resize(
-    geometric_shapes::solidPrimitiveDimCount<shape_msgs::msg::SolidPrimitive::CYLINDER>());
-  object.primitives[0].dimensions.at(shape_msgs::msg::SolidPrimitive::CYLINDER_HEIGHT) = 0.1;
-  object.primitives[0].dimensions.at(shape_msgs::msg::SolidPrimitive::CYLINDER_RADIUS) = 0.02;
+      geometric_shapes::solidPrimitiveDimCount<
+          shape_msgs::msg::SolidPrimitive::CYLINDER>());
+  object.primitives[0].dimensions.at(
+      shape_msgs::msg::SolidPrimitive::CYLINDER_HEIGHT) = 0.1;
+  object.primitives[0].dimensions.at(
+      shape_msgs::msg::SolidPrimitive::CYLINDER_RADIUS) = 0.02;
   object.pose = pose;
   return object;
 }
 
-int main(int argc, char ** argv)
-{
+int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
   rclcpp::NodeOptions options;
   options.automatically_declare_parameters_from_overrides(true);
@@ -66,9 +73,12 @@ int main(int argc, char ** argv)
 
   moveit::planning_interface::PlanningSceneInterface psi;
   // get pose from param
-  psi.applyCollisionObject(createObject(tf2::toMsg(Eigen::Isometry3d(Eigen::Translation3d(
-    pick_place_parameters.object_pose.position.x, pick_place_parameters.object_pose.position.y,
-    pick_place_parameters.object_pose.position.z)))));
+  psi.applyCollisionObject(createObject(
+      pick_place_parameters.object_name, pick_place_parameters.object_frame_id,
+      tf2::toMsg(Eigen::Isometry3d(Eigen::Translation3d(
+          pick_place_parameters.object_pose.position.x,
+          pick_place_parameters.object_pose.position.y,
+          pick_place_parameters.object_pose.position.z)))));
   rclcpp::sleep_for(500ms);
 
   if (!pick_place_task.plan()) {
