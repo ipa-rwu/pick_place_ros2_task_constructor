@@ -12,15 +12,6 @@ find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(rosparam_shortcuts REQUIRED)
 
-set(simple_mtc_dependencies
-  ament_cmake
-  rclcpp
-  moveit_task_constructor_core
-  Boost
-  pluginlib
-  rclcpp_components
-)
-
 set(pick_place_dependencies
   ament_cmake
   rclcpp
@@ -35,9 +26,9 @@ set(pick_place_dependencies
 find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3 REQUIRED)
 
-###########
-## Build pick place demo ##
-###########
+# ##########
+# # Build pick place demo ##
+# ##########
 set(pick_place_executable pick_place_demo)
 set(pick_place_task_lib ${pick_place_executable}_core)
 
@@ -57,13 +48,11 @@ target_include_directories(${pick_place_executable}
   $<INSTALL_INTERFACE:include>)
 
 install(TARGETS
-        ${simple_mtc_lib}
-        ${simple_mtc_executable}
-        ${pick_place_task_lib}
-        ${pick_place_executable}
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-        RUNTIME DESTINATION lib/${PROJECT_NAME})
+  ${pick_place_task_lib}
+  ${pick_place_executable}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}
@@ -77,12 +66,13 @@ install(DIRECTORY include/
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
+
   # the following line skips the linter which checks for copyrights
   # uncomment the line when a copyright and license is not present in all source files
-  #set(ament_cmake_copyright_FOUND TRUE)
+  # set(ament_cmake_copyright_FOUND TRUE)
   # the following line skips cpplint (only works in a git repo)
   # uncomment the line when this package is not in a git repo
-  #set(ament_cmake_cpplint_FOUND TRUE)
+  # set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
 
