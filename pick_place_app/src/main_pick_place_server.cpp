@@ -8,18 +8,17 @@
 #include <rclcpp/rclcpp.hpp>
 
 using namespace std::chrono_literals;
-static const rclcpp::Logger LOGGER =
-    rclcpp::get_logger("pick_place_server_demo");
+static const rclcpp::Logger LOGGER = rclcpp::get_logger("pick_place_server_demo");
 
-int main(int argc, char** argv) {
+int main(int argc, char ** argv)
+{
   rclcpp::init(argc, argv);
   rclcpp::NodeOptions options;
   options.automatically_declare_parameters_from_overrides(true);
 
   const std::string node_name = "pick_place_server_demo";
 
-  auto service_node =
-      std::make_shared<pick_place_server::PickPlaceServer>(node_name, options);
+  auto service_node = std::make_shared<pick_place_server::PickPlaceServer>(node_name, options);
 
   rclcpp::executors::MultiThreadedExecutor executor;
 
