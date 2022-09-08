@@ -1,0 +1,5 @@
+string object_name
+geometry_msgs/PoseStamped object_pose
+geometry_msgs/PoseStamped place_pose
+---
+bool result
