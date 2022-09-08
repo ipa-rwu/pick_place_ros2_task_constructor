@@ -11,6 +11,7 @@ find_package(moveit_task_constructor_core REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(rosparam_shortcuts REQUIRED)
+find_package(pick_place_msgs REQUIRED)
 
 set(pick_place_dependencies
   ament_cmake
@@ -20,6 +21,17 @@ set(pick_place_dependencies
   pluginlib
   rclcpp_components
   rosparam_shortcuts
+)
+
+set(pick_place_server_dependencies
+  ament_cmake
+  rclcpp
+  moveit_task_constructor_core
+  Boost
+  pluginlib
+  rclcpp_components
+  rosparam_shortcuts
+  pick_place_msgs
 )
 
 # System dependencies are found with CMake's conventions
@@ -47,9 +59,34 @@ target_include_directories(${pick_place_executable}
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 
+# ##########
+# # Build pick place server ##
+# ##########
+set(pick_place_server_executable pick_place_server)
+set(pick_place_server_lib ${pick_place_server_executable}_core)
+
+add_library(${pick_place_server_lib} SHARED
+  src/pick_place_server.cpp
+  src/pick_place_task.cpp)
+ament_target_dependencies(
+  ${pick_place_server_lib}
+  ${THIS_PACKAGE_INCLUDE_DEPENDS}
+  ${pick_place_server_dependencies})
+
+add_executable(${pick_place_server_executable} src/main_pick_place_server.cpp)
+target_compile_options(${pick_place_server_executable} PUBLIC -g -O0)
+target_link_libraries(${pick_place_server_executable}
+  ${pick_place_server_lib})
+target_include_directories(${pick_place_server_executable}
+  PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+
 install(TARGETS
   ${pick_place_task_lib}
   ${pick_place_executable}
+  ${pick_place_server_lib}
+  ${pick_place_server_executable}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME})
@@ -76,4 +113,9 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
+ament_export_include_directories(include)
+ament_export_libraries(
+  ${pick_place_task_lib}
+)
+ament_export_dependencies(${pick_place_dependencies})
 ament_package()
