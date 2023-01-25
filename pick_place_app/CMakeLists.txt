@@ -12,6 +12,7 @@ find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(rosparam_shortcuts REQUIRED)
 find_package(pick_place_msgs REQUIRED)
+find_package(ur_msgs REQUIRED)
 
 set(pick_place_dependencies
   ament_cmake
@@ -34,9 +35,25 @@ set(pick_place_server_dependencies
   pick_place_msgs
 )
 
+set(mock_deps
+  ament_cmake
+  rclcpp
+  ur_msgs
+)
+
 # System dependencies are found with CMake's conventions
 find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3 REQUIRED)
+
+# ##########
+# # Mock IO Server ##
+# ##########
+add_executable(mock_io_server src/mock_io_server.cpp)
+ament_target_dependencies(mock_io_server
+rclcpp ur_msgs)
+install(TARGETS
+mock_io_server
+  DESTINATION lib/${PROJECT_NAME})
 
 # ##########
 # # Build pick place demo ##

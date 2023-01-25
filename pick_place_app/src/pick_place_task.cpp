@@ -22,16 +22,15 @@
 const rclcpp::Logger LOGGER = rclcpp::get_logger("pick_place_task");
 namespace mtc = moveit::task_constructor;
 
-void PickPlaceTask::Parameters::loadParameters(const rclcpp::Node::SharedPtr & node)
+void PickPlaceTask::Parameters::loadParameters(const rclcpp::Node::SharedPtr& node)
 {
   // Critical parameters (no default exists => shutdown if loading fails)
   size_t errors = 0;
   errors += !rosparam_shortcuts::get(node, "arm_group_name",
                                      arm_group_name);  // e.g. panda_arm
 
-  errors += !rosparam_shortcuts::get(
-    node, "end_effector_name",
-    end_effector_name);  // e.g. == hand_group_name, hand
+  errors += !rosparam_shortcuts::get(node, "end_effector_name",
+                                     end_effector_name);  // e.g. == hand_group_name, hand
   errors += !rosparam_shortcuts::get(node, "hand_frame",
                                      hand_frame);  // e.g. panda_hand
   errors += !rosparam_shortcuts::get(node, "object_pose", object_pose);
@@ -40,6 +39,9 @@ void PickPlaceTask::Parameters::loadParameters(const rclcpp::Node::SharedPtr & n
   errors += !rosparam_shortcuts::get(node, "place_frame_id", place_frame_id);
 
   errors += !rosparam_shortcuts::get(node, "object_name", object_name);
+
+  errors += !rosparam_shortcuts::get(node, "gripper_io_server",
+                                     gripper_io_server_name);  // e.g. panda_arm
 
   rosparam_shortcuts::shutdownIfError(errors);
 
@@ -55,8 +57,7 @@ void PickPlaceTask::Parameters::loadParameters(const rclcpp::Node::SharedPtr & n
   RCLCPP_WARN(LOGGER, "Failed to load optional parameters.");
 }
 
-PickPlaceTask::PickPlaceTask(
-  const rclcpp::Node::SharedPtr & node, const PickPlaceTask::Parameters & parameters)
+PickPlaceTask::PickPlaceTask(const rclcpp::Node::SharedPtr& node, const PickPlaceTask::Parameters& parameters)
 {
   using namespace moveit::task_constructor;
   RCLCPP_INFO(LOGGER, "Initializing task pipeline");
@@ -89,7 +90,7 @@ PickPlaceTask::PickPlaceTask(
   /**************************
    * Current State *
    **************************/
-  mtc::Stage * current_state_ptr = nullptr;  // Forward current_state on to grasp pose generator
+  mtc::Stage* current_state_ptr = nullptr;  // Forward current_state on to grasp pose generator
   {
     auto current_state = std::make_unique<mtc::stages::CurrentState>("current state");
     current_state_ptr = current_state.get();
@@ -107,6 +108,12 @@ PickPlaceTask::PickPlaceTask(
     task_->add(std::move(stage));
   }
 
+  // {
+  //   auto stage = std::make_unique<mtc::stages::UseIOGripper>("open hand", parameters.gripper_io_server_name);
+  //   stage->setGripperState("open");
+  //   task_->add(std::move(stage));
+  // }
+
   /**************************
    * Move To Object's Pose *
    **************************/
@@ -116,29 +123,26 @@ PickPlaceTask::PickPlaceTask(
   // after it.
   {
     auto stage_move_to_pick = std::make_unique<mtc::stages::Connect>(
-      "move to pick",
-      mtc::stages::Connect::GroupPlannerVector{{parameters.arm_group_name, sampling_planner}});
+        "move to pick", mtc::stages::Connect::GroupPlannerVector{ { parameters.arm_group_name, sampling_planner } });
     stage_move_to_pick->setTimeout(5.0);
     stage_move_to_pick->properties().configureInitFrom(mtc::Stage::PARENT);
     task_->add(std::move(stage_move_to_pick));
   }
 
-  mtc::Stage * attach_object_stage =
-    nullptr;  // Forward attach_object_stage to place pose generator
+  mtc::Stage* attach_object_stage = nullptr;  // Forward attach_object_stage to place pose generator
 
   // This is an example of SerialContainer usage. It's not strictly needed here.
   // In fact, `task` itself is a SerialContainer by default.
   {
     auto grasp = std::make_unique<mtc::SerialContainer>("pick object");
-    task_->properties().exposeTo(grasp->properties(), {"eef", "group", "ik_frame"});
-    grasp->properties().configureInitFrom(mtc::Stage::PARENT, {"eef", "group", "ik_frame"});
+    task_->properties().exposeTo(grasp->properties(), { "eef", "group", "ik_frame" });
+    grasp->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group", "ik_frame" });
 
     {
-      auto stage =
-        std::make_unique<mtc::stages::MoveRelative>("approach object", cartesian_planner);
+      auto stage = std::make_unique<mtc::stages::MoveRelative>("approach object", cartesian_planner);
       stage->properties().set("marker_ns", "approach_object");
       stage->properties().set("link", parameters.hand_frame);
-      stage->properties().configureInitFrom(mtc::Stage::PARENT, {"group"});
+      stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
       stage->setMinMaxDistance(0.1, 0.15);
 
       // Set hand forward direction
@@ -174,21 +178,19 @@ PickPlaceTask::PickPlaceTask(
       wrapper->setMaxIKSolutions(8);
       wrapper->setMinSolutionDistance(1.0);
       wrapper->setIKFrame(grasp_frame_transform, parameters.hand_frame);
-      wrapper->properties().configureInitFrom(mtc::Stage::PARENT, {"eef", "group"});
-      wrapper->properties().configureInitFrom(mtc::Stage::INTERFACE, {"target_pose"});
+      wrapper->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group" });
+      wrapper->properties().configureInitFrom(mtc::Stage::INTERFACE, { "target_pose" });
       grasp->insert(std::move(wrapper));
     }
 
     /** Allow Collision (hand object) **/
     {
-      auto stage =
-        std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (hand,object)");
-      stage->allowCollisions(
-        "object",
-        task_->getRobotModel()
-          ->getJointModelGroup(parameters.hand_group_name)
-          ->getLinkModelNamesWithCollisionGeometry(),
-        true);
+      auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("allow collision (hand,object)");
+      stage->allowCollisions("object",
+                             task_->getRobotModel()
+                                 ->getJointModelGroup(parameters.hand_group_name)
+                                 ->getLinkModelNamesWithCollisionGeometry(),
+                             true);
       grasp->insert(std::move(stage));
     }
 
@@ -211,7 +213,7 @@ PickPlaceTask::PickPlaceTask(
     /** Lift object **/
     {
       auto stage = std::make_unique<mtc::stages::MoveRelative>("lift object", cartesian_planner);
-      stage->properties().configureInitFrom(mtc::Stage::PARENT, {"group"});
+      stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
       stage->setMinMaxDistance(0.1, 0.3);
       stage->setIKFrame(parameters.hand_frame);
       stage->properties().set("marker_ns", "lift_object");
@@ -232,9 +234,8 @@ PickPlaceTask::PickPlaceTask(
    **************************/
   {
     auto stage_move_to_place = std::make_unique<mtc::stages::Connect>(
-      "move to place", mtc::stages::Connect::GroupPlannerVector{
-                         {parameters.arm_group_name, sampling_planner},
-                         {parameters.hand_group_name, sampling_planner}});
+        "move to place", mtc::stages::Connect::GroupPlannerVector{ { parameters.arm_group_name, sampling_planner },
+                                                                   { parameters.hand_group_name, sampling_planner } });
     stage_move_to_place->setTimeout(5.0);
     stage_move_to_place->properties().configureInitFrom(mtc::Stage::PARENT);
     task_->add(std::move(stage_move_to_place));
@@ -245,8 +246,8 @@ PickPlaceTask::PickPlaceTask(
    **************************/
   {
     auto place = std::make_unique<mtc::SerialContainer>("place object");
-    task_->properties().exposeTo(place->properties(), {"eef", "group", "ik_frame"});
-    place->properties().configureInitFrom(mtc::Stage::PARENT, {"eef", "group", "ik_frame"});
+    task_->properties().exposeTo(place->properties(), { "eef", "group", "ik_frame" });
+    place->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group", "ik_frame" });
 
     {
       // Sample place pose
@@ -266,8 +267,8 @@ PickPlaceTask::PickPlaceTask(
       wrapper->setMaxIKSolutions(8);
       wrapper->setMinSolutionDistance(1.0);
       wrapper->setIKFrame(parameters.hand_frame);
-      wrapper->properties().configureInitFrom(mtc::Stage::PARENT, {"eef", "group"});
-      wrapper->properties().configureInitFrom(mtc::Stage::INTERFACE, {"target_pose"});
+      wrapper->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group" });
+      wrapper->properties().configureInitFrom(mtc::Stage::INTERFACE, { "target_pose" });
       place->insert(std::move(wrapper));
     }
 
@@ -281,14 +282,12 @@ PickPlaceTask::PickPlaceTask(
 
     /** Forbid collision(hand,object) **/
     {
-      auto stage =
-        std::make_unique<mtc::stages::ModifyPlanningScene>("forbid collision (hand,object)");
-      stage->allowCollisions(
-        "object",
-        task_->getRobotModel()
-          ->getJointModelGroup(parameters.hand_group_name)
-          ->getLinkModelNamesWithCollisionGeometry(),
-        false);
+      auto stage = std::make_unique<mtc::stages::ModifyPlanningScene>("forbid collision (hand,object)");
+      stage->allowCollisions("object",
+                             task_->getRobotModel()
+                                 ->getJointModelGroup(parameters.hand_group_name)
+                                 ->getLinkModelNamesWithCollisionGeometry(),
+                             false);
       place->insert(std::move(stage));
     }
 
@@ -301,7 +300,7 @@ PickPlaceTask::PickPlaceTask(
 
     {
       auto stage = std::make_unique<mtc::stages::MoveRelative>("retreat", cartesian_planner);
-      stage->properties().configureInitFrom(mtc::Stage::PARENT, {"group"});
+      stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
       stage->setMinMaxDistance(0.1, 0.3);
       stage->setIKFrame(parameters.hand_frame);
       stage->properties().set("marker_ns", "retreat");
@@ -322,7 +321,7 @@ PickPlaceTask::PickPlaceTask(
 
   {
     auto stage = std::make_unique<mtc::stages::MoveTo>("return home", interpolation_planner);
-    stage->properties().configureInitFrom(mtc::Stage::PARENT, {"group"});
+    stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
     stage->setGoal("ready");
     task_->add(std::move(stage));
   }
@@ -333,19 +332,24 @@ bool PickPlaceTask::plan()
   RCLCPP_INFO(LOGGER, "Start searching for task solutions");
   task_->enableIntrospection();
 
-  try {
+  try
+  {
     task_->init();
-  } catch (mtc::InitStageException & e) {
+  }
+  catch (mtc::InitStageException& e)
+  {
     RCLCPP_ERROR_STREAM(LOGGER, e);
     return false;
   }
 
-  if (!task_->plan(5 /* max_solutions */)) {
+  if (!task_->plan(5 /* max_solutions */))
+  {
     RCLCPP_ERROR_STREAM(LOGGER, "Task planning failed");
     return false;
   }
 
-  if (task_->numSolutions() == 0) {
+  if (task_->numSolutions() == 0)
+  {
     RCLCPP_ERROR(LOGGER, "Planning failed");
     return false;
   }
@@ -360,7 +364,8 @@ bool PickPlaceTask::execute()
 
   moveit_msgs::msg::MoveItErrorCodes execute_result = task_->execute(*task_->solutions().front());
 
-  if (execute_result.val != moveit_msgs::msg::MoveItErrorCodes::SUCCESS) {
+  if (execute_result.val != moveit_msgs::msg::MoveItErrorCodes::SUCCESS)
+  {
     RCLCPP_ERROR_STREAM(LOGGER, "Task execution failed and returned: " << execute_result.val);
     return false;
   }

@@ -18,12 +18,13 @@ public:
     std::string hand_frame;
     std::string object_frame_id;
     std::string place_frame_id;
+    std::string gripper_io_server_name;
     geometry_msgs::msg::Pose place_pose;
     geometry_msgs::msg::Pose object_pose;
 
-    void loadParameters(const rclcpp::Node::SharedPtr & node);
+    void loadParameters(const rclcpp::Node::SharedPtr& node);
   };
-  PickPlaceTask(const rclcpp::Node::SharedPtr & node, const Parameters & parameters);
+  PickPlaceTask(const rclcpp::Node::SharedPtr& node, const Parameters& parameters);
   bool plan();
   bool execute();
 
